@@ -14,6 +14,7 @@ class Question:
 class Student:
     def __init__(self, name, gender):
         self.name = name
+        self.id = 0
         self.gender = gender  # 'М' или 'Ж'
         self.status = "Очередь"  # Изначально в очереди
         self.success_time = 0.0
@@ -91,12 +92,12 @@ def examiner_process(name, student_queue, examiner_stats, student_stats, questio
             break
         else:
             exam_time = random.uniform(len(examiner_stats[f"{name}"]) - 1, len([f"{name}"]) + 1)
-            st_name = student_queue.get() # берем студента из очереди
-            examiner_stats[f"{name}_current_student"] = st_name
+            st_id = student_queue.get() # берем студента по id из очереди
+            examiner_stats[f"{name}_current_student"] = student_stats[f"{st_id}_name"]
             examiner_stats[f"{name}_total_students"] += 1
             examiner_stats[f"{name}_work_time"] = time.time() - start_time
             
-            student_stats[f"{st_name}_status"] = "На экзамене"
+            student_stats[f"{st_id}_status"] = "На экзамене"
 
             end_time = time.time() + exam_time
             # Экзаменатор задает вопросы пока не закончится время экзамена
@@ -112,7 +113,7 @@ def examiner_process(name, student_queue, examiner_stats, student_stats, questio
                 question = random.choice(que)
                 que.remove(question)
                 correct_answers = get_random_answers(examiner_stats[f"{name}_gender"], question.words[:])
-                student_answer = answer_question(student_stats[f"{st_name}_gender"], question.words)
+                student_answer = answer_question(student_stats[f"{st_id}_gender"], question.words)
                 if student_answer in correct_answers:
                     student_correct += 1
                     question_stats[question.text] += 1
@@ -121,20 +122,20 @@ def examiner_process(name, student_queue, examiner_stats, student_stats, questio
 
             # Оценка результата
             if evaluate(student_correct, student_incorrect):
-                student_stats[f"{st_name}_status"] = "Сдал"
-                if student_stats[f"{st_name}_success_time"] == 0:
-                    student_stats[f"{st_name}_success_time"] = exam_time
+                student_stats[f"{st_id}_status"] = "Сдал"
+                if student_stats[f"{st_id}_success_time"] == 0:
+                    student_stats[f"{st_id}_success_time"] = exam_time
                 else: 
-                    if exam_time < student_stats[f"{st_name}_success_time"]:
-                        student_stats[f"{st_name}_success_time"] = exam_time
+                    if exam_time < student_stats[f"{st_id}_success_time"]:
+                        student_stats[f"{st_id}_success_time"] = exam_time
             else:
                 examiner_stats[f"{name}_failed_students"] += 1
-                student_stats[f"{st_name}_status"] = "Провалил"
-                if student_stats[f"{st_name}_fail_time"] == 0.0:
-                    student_stats[f"{st_name}_fail_time"] = exam_time
-                    if exam_time < student_stats[f"{st_name}_fail_time"]:
+                student_stats[f"{st_id}_status"] = "Провалил"
+                if student_stats[f"{st_id}_fail_time"] == 0.0:
+                    student_stats[f"{st_id}_fail_time"] = exam_time
+                    if exam_time < student_stats[f"{st_id}_fail_time"]:
                         print("Завалили")
-                        student_stats[f"{st_name}_fail_time"] = exam_time
+                        student_stats[f"{st_id}_fail_time"] = exam_time
 
             examiner_stats[f"{name}_work_time"] = time.time() - start_time
 
@@ -150,7 +151,7 @@ def display_student_table(student_stats, students):
     student_table = PrettyTable()
     student_table.field_names = ["Студент", "Статус"]
     for student in students:
-        student_table.add_row([student_stats[f"{student.name}"], student_stats[f"{student.name}_status"]])
+        student_table.add_row([student_stats[f"{student.id}_name"], student_stats[f"{student.id}_status"]])
     print("Таблица студентов:")
     print(student_table)
 
@@ -189,7 +190,7 @@ def display_status(student_stats, students, examiner_stats, examiners, total_stu
 
         q = 0
         for s in students:
-            if student_stats[f"{s.name}_status"] == "Очередь":
+            if student_stats[f"{s.id}_status"] == "Очередь":
                 q += 1
 
         print(f"\nОставшихся в очереди студентов: {q}/{total_students}")
@@ -205,8 +206,8 @@ def display_final(student_stats, students, examiner_stats, examiners, question_s
 
     tmp = {}
     for s in students:
-        if student_stats[f"{s.name}_success_time"] > 0:
-            tmp[student_stats[f"{s.name}_success_time"]] = s.name
+        if student_stats[f"{s.id}_success_time"] > 0:
+            tmp[student_stats[f"{s.id}_success_time"]] = s.name
     k_min = min(tmp.keys())
     best = [v for k, v in tmp.items() if k == k_min]
     print(f"Имена лучших студентов: {', '.join(best)}")
@@ -215,15 +216,15 @@ def display_final(student_stats, students, examiner_stats, examiners, question_s
     bad = 0 #для подсчета заваливших экз
     for ex in examiners:
         bad += examiner_stats[f"{ex.name}_failed_students"] 
-        proc[(examiner_stats[f"{ex.name}_failed_students"]/examiner_stats[f"{ex.name}_total_students"])*100] = ex.name
+        proc[(examiner_stats[f"{ex.name}_failed_students"] / examiner_stats[f"{ex.name}_total_students"]) * 100] = ex.name
     proc_min = min(proc.keys())
     best_ex = [v for k,v in proc.items() if k == proc_min]
     print(f"Имена лучших экзаменаторов: {', '.join(best_ex)}")
 
     tmp.clear()
     for s in students:
-        if student_stats[f"{s.name}_fail_time"] > 0:
-            tmp[student_stats[f"{s.name}_fail_time"]] = s.name
+        if student_stats[f"{s.id}_fail_time"] > 0:
+            tmp[student_stats[f"{s.id}_fail_time"]] = s.name
     if tmp:
         k_min = min(tmp.keys())
         worst = [v for k, v in tmp.items() if k == k_min]
@@ -247,8 +248,11 @@ def main():
     examiners, students, questions = load_data()
 
     student_queue = mp.Queue()
+    it_id = 0 # для индексации студентов 
     for student in students:
-        student_queue.put(student.name)
+        student.id = it_id
+        student_queue.put(student.id)
+        it_id += 1
 
     # Используем Manager для сбора и хранения статистики
     with mp.Manager() as manager:
@@ -268,12 +272,12 @@ def main():
             examiner_stats[f"{ex_name}_work_time"] = examiner.work_time
 
         for student in students:
-            st_name = student.name
-            student_stats[f"{st_name}"] = st_name
-            student_stats[f"{st_name}_gender"] = student.gender
-            student_stats[f"{st_name}_status"] = student.status
-            student_stats[f"{st_name}_success_time"] = student.success_time
-            student_stats[f"{st_name}_fail_time"] = student.fail_time
+            st_id = student.id
+            student_stats[f"{st_id}_name"] = student.name
+            student_stats[f"{st_id}_gender"] = student.gender
+            student_stats[f"{st_id}_status"] = student.status
+            student_stats[f"{st_id}_success_time"] = student.success_time
+            student_stats[f"{st_id}_fail_time"] = student.fail_time
 
         for question in questions:
             question_stats[question.text] = question.success
